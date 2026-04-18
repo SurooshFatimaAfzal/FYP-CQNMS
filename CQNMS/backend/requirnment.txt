@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+prometheus_client
+pandas
+scikit-learn
+python-multipart
