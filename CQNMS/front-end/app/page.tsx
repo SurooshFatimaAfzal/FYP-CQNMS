@@ -9,84 +9,107 @@ export default function Dashboard() {
   const [intensity, setIntensity] = useState(1000);
 
   useEffect(() => {
-    const fetchData = () => {
-      fetch(`http://localhost:8000/api/stats?algo=${selectedAlgo}&intensity=${intensity}`)
-        .then(res => res.json())
-        .then(setStats)
-        .catch(err => console.error("API Error:", err));
+    const controller = new AbortController();
+    const fetchData = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:8000/api/stats?algo=${selectedAlgo}&intensity=${intensity}`,
+          { signal: controller.signal }
+        );
+        const data = await res.json();
+        setStats(data);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') console.error("API Error:", err);
+      }
     };
+
     const interval = setInterval(fetchData, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      controller.abort();
+    };
   }, [selectedAlgo, intensity]);
 
-  // Dynamic color for bars
+  // Monochrome Bar Logic
   const getBarColor = (load: number) => {
-    if (load > 80) return 'bg-red-500';
-    if (load > 60) return 'bg-yellow-500';
-    if (load > 30) return 'bg-green-500';
-    return 'bg-blue-500';
+    if (load > 85) return 'bg-black shadow-[0_0_8px_rgba(0,0,0,0.3)]'; 
+    if (load > 60) return 'bg-slate-500';
+    return 'bg-slate-300';
   };
 
   return (
-    <main className="h-screen w-full bg-[#f8fafc] p-4 font-sans text-slate-900 overflow-hidden flex flex-col gap-4">
+    <main className="h-screen w-full bg-white p-4 font-sans text-black overflow-hidden flex flex-col gap-4">
       
-      {/* 1. White Slim Header */}
-      <header className="h-[60px] bg-white border border-slate-200 rounded-lg px-6 flex items-center justify-between shadow-sm shrink-0">
-        <h1 className="text-black-800 font-black tracking-tight text-sm uppercase">
-          FYP - <span className="text-black-600">CQNMS Load Management System</span>
+      {/* 1. Header: White & Black */}
+      <header className="h-[60px] bg-white border border-slate-200 rounded-xl px-6 flex items-center justify-between shadow-sm shrink-0">
+        <h1 className="text-black font-black tracking-tight text-sm uppercase flex items-center gap-2">
+          <span className="bg-black text-white px-2 py-0.5 rounded text-[10px]">v2.1</span>
+          FYP - <span className="opacity-50 font-bold">CQNMS ENGINE</span>
         </h1>
+        
+        {/* Live Prediction Alert */}
+        {stats?.prediction > 0.7 && (
+          <div className="bg-black text-white px-4 py-1.5 rounded-full text-[10px] font-black animate-pulse flex items-center gap-2 border border-white/20">
+            ⚠️ PREDICTIVE ALERT: HIGH LOAD
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
-           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Live</span>
+           <span className="h-2 w-2 rounded-full bg-black animate-pulse"></span>
+           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">System Online</span>
         </div>
       </header>
 
-      {/* 2. Control Strip */}
-      <div className="bg-white border border-slate-200 rounded-lg p-2 px-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded border border-slate-100">
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Traffic Input Intensity:</span>
+      {/* 2. Control Strip: Minimalist Grey */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 px-5 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4 px-4 py-2">
+            <span className="text-[10px] font-bold text-slate-500 uppercase">Traffic Intensity:</span>
             <input 
-              type="number" value={intensity} 
+              type="range" min="100" max="5000" step="100"
+              value={intensity} 
               onChange={(e) => setIntensity(Number(e.target.value))}
-              className="w-16 bg-transparent border-none p-0 text-xs font-black text-blue-600 focus:outline-none text-center"
+              className="w-32 h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-black"
             />
+            <span className="text-xs font-black text-black w-12">{intensity}</span>
           </div>
           <div className="flex gap-2">
             {["Round Robin", "SJF", "Priority", "Least Loaded"].map(a => (
               <button key={a} onClick={() => setSelectedAlgo(a)}
-                className={`px-4 py-1.5 rounded text-[9px] font-bold uppercase transition-all border ${selectedAlgo === a ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}>
+                className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border ${selectedAlgo === a ? 'bg-black text-white border-black' : 'bg-white text-slate-400 border-slate-200 hover:border-black hover:text-black'}`}>
                 {a}
               </button>
             ))}
           </div>
       </div>
 
-      {/* 3. Main Content Grid */}
+      {/* 3. Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
-        <div className="col-span-12 lg:col-span-2 flex flex-col min-h-0">
+        <div className="col-span-12 lg:col-span-2">
             <StatsPanel stats={stats} />
         </div>
 
-        <div className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-lg p-4 relative shadow-sm overflow-hidden">
-           <div className="absolute top-4 left-6 z-10 flex items-center gap-2">
-              <span className="bg-black-900 text-white text-[9px] font-black px-3 py-1.5 rounded uppercase tracking-widest">Network Topology Map</span>
+        <div className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 relative shadow-sm overflow-hidden">
+           <div className="absolute top-4 left-6 z-10">
+              <span className="bg-black text-white text-[9px] font-black px-3 py-1.5 rounded uppercase tracking-widest shadow-md">Network Topology</span>
            </div>
-           <div className="w-full h-full">
-              <NetworkMap stats={stats} />
-           </div>
+           <NetworkMap stats={stats} />
         </div>
 
         <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 min-h-0">
-          <div className="h-[35%] bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Server Utilization</h3>
-            <div className="flex-1 flex flex-col justify-center space-y-4">
+          {/* Utilization: Grayscale */}
+          <div className="h-[40%] bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-5">Node Resource Health</h3>
+            <div className="flex-1 flex flex-col justify-center space-y-5">
               {stats?.servers?.map((s: any) => (
                 <div key={s.name}>
-                  <div className="flex justify-between text-[9px] font-bold mb-1">
-                    <span className="text-slate-600 uppercase tracking-tighter">{s.name}</span>
-                    <span className="text-black-900 font-black">{s.load}%</span>
+                  <div className="flex justify-between text-[10px] font-bold mb-1.5">
+                    <span className="text-slate-700 uppercase">{s.name}</span>
+                    <span className={`text-[9px] px-2 rounded font-black ${s.status === 'Healthy' ? 'bg-slate-100 text-slate-500' : 'bg-black text-white'}`}>
+                      {s.status}
+                    </span>
+                    <span className="text-black font-black">{s.load}%</span>
                   </div>
-                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                     <div className={`h-full transition-all duration-700 ${getBarColor(s.load)}`} style={{ width: `${s.load}%` }}></div>
                   </div>
                 </div>
@@ -94,17 +117,17 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex-1 bg-[#000000] p-4 rounded-lg shadow-xl border border-slate-800 flex flex-col min-h-0 relative">
-            <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3">Algorithm Logs</h3>
-            <div className="flex-1 overflow-y-auto space-y-2 font-mono pr-1" style={{ scrollbarWidth: 'none' }}>
-              <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
+          {/* Logs: Stark Dark Mode */}
+          <div className="flex-1 bg-black p-5 rounded-xl shadow-2xl flex flex-col min-h-0 relative border border-white/5">
+            <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Execution Logs</h3>
+            <div className="flex-1 overflow-y-auto space-y-3 font-mono scrollbar-hide">
               {stats?.logs?.map((log: any, i: number) => (
-                <div key={i} className="text-[10px] py-2 border-b border-white/5 last:border-0" style={{ borderLeft: `3px solid ${log.color || '#3b82f6'}`, paddingLeft: '8px' }}>
-                  <div className="flex justify-between items-center mb-0.5">
-                    <span className="font-bold uppercase tracking-tighter text-[9px]" style={{ color: log.color || '#3b82f6' }}>{log.algo}</span>
+                <div key={i} className="text-[10px] py-2 border-b border-white/5 last:border-0 opacity-80" style={{ borderLeft: `2px solid white`, paddingLeft: '10px' }}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-bold text-white uppercase text-[9px]">{log.algo}</span>
                     <span className="text-[8px] text-slate-500">{log.timestamp}</span>
                   </div>
-                  <p className="text-slate-300 leading-tight">{log.message}</p>
+                  <p className="text-slate-400 leading-tight">➜ {log.message}</p>
                 </div>
               ))}
             </div>

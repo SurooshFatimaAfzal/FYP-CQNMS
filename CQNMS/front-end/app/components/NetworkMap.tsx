@@ -1,65 +1,47 @@
-"use client";
-import React, { useMemo } from 'react';
-import ReactFlow, { Background } from 'reactflow';
-import 'reactflow/dist/style.css';
+import React from 'react';
 
-const nodeTypes = {}; 
-const edgeTypes = {};
-
-export default function NetworkMap({ stats }: any) {
-  const nodes = useMemo(() => {
-    const isIdle = !stats || stats.traffic <= 0;
-    const baseNodes = [
-      { 
-        id: 'lb', 
-        position: { x: 300, y: 20 }, 
-        data: { label: 'Request Distributor' }, 
-        style: { 
-          background: isIdle ? '#94a3b8' : '#0f172a', 
-          color: '#ffff', borderRadius: '4px', fontSize: '8px', width: 120, textAlign: 'center' as const, transition: 'all 0.5s'
-        } 
-      }
-    ];
-
-    if (!stats?.servers) return baseNodes;
-
-    const serverNodes = stats.servers.map((s: any, i: number) => ({
-      id: `s${i + 1}`,
-      position: { x: 50 + (i * 160), y: 180 },
-      data: { label: `🖥️ ${s.name}\n${s.load}%` },
-      style: { 
-        fontSize: '9px', width: 100, borderRadius: '4px', textAlign: 'center' as const,
-        border: s.load > 80 ? '2px solid #ef4444' : '1px solid #e2e8f0',
-        background: s.load > 80 ? '#fef2f2' : '#fff',
-        transition: 'all 0.5s'
-      }
-    }));
-
-    return [...baseNodes, ...serverNodes];
-  }, [stats]);
-
-  const edges = useMemo(() => {
-    if (!stats?.servers) return [];
-    const isIdle = !stats || stats.traffic <= 0;
-
-    return stats.servers.map((s: any, i: number) => ({
-      id: `e${i + 1}`,
-      source: 'lb',
-      target: `s${i + 1}`,
-      animated: !isIdle, 
-      style: { 
-        stroke: isIdle ? '#f1f5f9' : (s.load > 80 ? '#ef4444' : s.load > 40 ? '#f59e0b' : '#3b82f6'), 
-        strokeWidth: isIdle ? 1 : (s.load > 80 ? 3 : 1.5),
-        transition: 'all 0.5s'
-      }
-    }));
-  }, [stats]);
-
+export default function NetworkMap({ stats }: { stats: any }) {
   return (
-    <div className="w-full h-full">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
-        <Background gap={12} color="#f1f5f9" />
-      </ReactFlow>
+    <div className="relative w-full h-full flex items-center justify-center">
+      {/* Central Gateway (FastAPI) */}
+      <div className="absolute z-20 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border-4 border-blue-500/20 text-center">
+        <div className="text-[10px] font-black uppercase opacity-60">LB Gateway</div>
+        <div className="text-xs font-bold">{stats?.active_algo || "Standby"}</div>
+      </div>
+
+      {/* SVG Connections (Animated Links) */}
+      <svg className="absolute inset-0 w-full h-full">
+        {stats?.servers?.map((s: any, i: number) => {
+          const angle = (i * 90) * (Math.PI / 180);
+          const x2 = 50 + 35 * Math.cos(angle);
+          const y2 = 50 + 35 * Math.sin(angle);
+          return (
+            <line key={i} x1="50%" y1="50%" x2={`${x2}%`} y2={`${y2}%`} 
+              stroke={s.load > 85 ? "#ef4444" : "#3b82f6"} 
+              strokeWidth="2" strokeDasharray="5,5" className={stats?.traffic > 0 ? "animate-[dash_2s_linear_infinite]" : ""} />
+          );
+        })}
+      </svg>
+
+      {/* Server Nodes */}
+      {stats?.servers?.map((s: any, i: number) => {
+        const angle = (i * 90) * (Math.PI / 180);
+        const top = 50 + 35 * Math.sin(angle);
+        const left = 50 + 35 * Math.cos(angle);
+        return (
+          <div key={i} className="absolute transition-all duration-500 p-3 rounded-xl bg-white border-2 shadow-lg text-center"
+            style={{ top: `${top}%`, left: `${left}%`, transform: 'translate(-50%, -50%)', borderColor: s.load > 85 ? '#ef4444' : '#e2e8f0' }}>
+            <div className="text-[9px] font-black text-slate-400 uppercase">{s.name}</div>
+            <div className={`text-xs font-black ${s.load > 85 ? 'text-red-600' : 'text-slate-900'}`}>{s.load}%</div>
+          </div>
+        );
+      })}
+      
+      <style jsx>{`
+        @keyframes dash {
+          to { stroke-dashoffset: -20; }
+        }
+      `}</style>
     </div>
   );
 }

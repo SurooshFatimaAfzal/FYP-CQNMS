@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from core.engine import get_engine_stats
+from core.engine import engine # Import the instance
 
-app = FastAPI()
+app = FastAPI(title="CQNMS Advanced Engine v2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -12,9 +12,12 @@ app.add_middleware(
 )
 
 @app.get("/api/stats")
-def read_stats(algo: str = Query("Round Robin"), intensity: int = Query(1000)):
-    return get_engine_stats(algo, intensity)
+async def read_stats(algo: str = Query("Round Robin"), intensity: int = Query(1000)):
+    """
+    Main Endpoint for Frontend Dashboard
+    """
+    return engine.get_stats(algo, intensity)
 
-@app.get("/")
-def home():
-    return {"status": "online", "project": "CQNMS"}
+@app.get("/health")
+async def health_check():
+    return {"status": "optimized", "engine": "active", "version": "2.1-AI-Enabled"}
